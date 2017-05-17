@@ -9,6 +9,7 @@ import socket
 import sys
 import json
 import random
+import itertools # fastest way I found to solve corner problem
 
 from lib import game
 
@@ -212,18 +213,35 @@ class PylosClient(game.GameClient):
             for row in range(len(state.state()['board'][layer])):
                 for column in range(len(state.state()['board'][layer][row])):
                     if state.state()['board'][layer][row][column] == None:
+                        # Make a list of empty places where a ball can be placed on
                         try:
                             state.validPosition(layer, row, column)
                             emptySpots.append([layer, row, column])
                         except:
                             pass
                     if state.state()['board'][layer][row][column] == state.state()['turn']:
+                        # Make a list of the balls that don't support anything and can be (re)moved
                         try:
                             state.canMove(layer, row, column)
                             canMove.append([layer, row, column])
                         except:
                             pass
+                        
+                        # Make a square of own color if 3 are already in a corner
+                        for i in itertools.product([1,-1],repeat=2):
+                            try:
+                                if state.state()['board'][layer][row][column] == state.state()['board'][layer][row+i[0]][column+i[1]] and state.state()['board'][layer][row][column] == None:
+                                    return json.dumps({
+                                                'move': 'place',
+                                                'to': [[layer],[row+i[0]],[column+i[1]]],
+                                                'remove': [
+                                                    [[layer],[row+i[0]],[column+i[1]]],
+                                                    random.choice(canMove)
+                                                ]})
+                            except IndexError:
+                                pass
 
+        # If it's possible to move a ball up, do it
         for move in canMove:
             for spot in emptySpots:
                 if move[0] < spot[0]:
@@ -233,7 +251,6 @@ class PylosClient(game.GameClient):
                                    'from': move,
                                    'to': spot
                                })
-
 
 
         '''
