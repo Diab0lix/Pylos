@@ -9,7 +9,6 @@ import socket
 import sys
 import json
 import random
-import itertools # fastest way I found to solve corner problem
 
 from lib import game
 
@@ -226,61 +225,35 @@ class PylosClient(game.GameClient):
                             canMove.append([layer, row, column])
                         except:
                             pass
-                        
-                        # Make a square of own color if 3 are already in a corner
-                        for i in itertools.product([1,-1],repeat=2):
-                            try:
-                                if state.state()['board'][layer][row][column] == state.state()['board'][layer][row+i[0]][column+i[1]] and state.state()['board'][layer][row][column] == None:
-                                    return json.dumps({
-                                                'move': 'place',
-                                                'to': [[layer],[row+i[0]],[column+i[1]]],
-                                                'remove': [
-                                                    [[layer],[row+i[0]],[column+i[1]]],
-                                                    random.choice(canMove)
-                                                ]})
-                            except IndexError:
-                                pass
+
+        for layer in range(len(state.state()['board'])):
+            for row in range(len(state.state()['board'][layer])):
+                for column in range(len(state.state()['board'][layer][row])):                 
+                    # Make a square of own color if 3 are already in a corner
+                    for i in ((1,1),(1,-1),(-1,1),(-1,-1)):
+                        try:
+                            if state.state()['board'][layer][row][column] == state.state()['board'][layer][row+i[0]][column] == state.state()['board'][layer][row][column+i[1]] != None and [layer,row+i[0],column+i[1]] in emptySpots:
+                                return json.dumps({
+                                            'move': 'place',
+                                            'to': [layer,row+i[0],column+i[1]],
+                                            'remove': [
+                                                [layer,row+i[0],column+i[1]],
+                                                random.choice(canMove)
+                                            ]})
+                        except IndexError:
+                            pass
 
         # If it's possible to move a ball up, do it
         for move in canMove:
             for spot in emptySpots:
                 if move[0] < spot[0]:
-                    if move[1] != spot[1] and move[1] != spot[2] and abs(move[1]-spot[1]) > 1 or abs(move[2]-spot[2]) > 1:
+                    if move[1] != spot[1] and move[1] != spot[2] and move[1]-spot[1] > 1 or move[2]-spot[2] > 1:
                         return json.dumps({
                                    'move': 'move',
                                    'from': move,
                                    'to': spot
                                })
 
-
-        '''
-        example of moves
-        coordinates are like [layer, row, colums]
-        move = {
-            'move': 'place',
-            'to': [0,1,1]
-        }
-
-        move = {
-            'move': 'move',
-            'from': [0,1,1],
-            'to': [1,1,1]
-        }
-
-        move = {
-            'move': 'move',
-            'from': [0,1,1],
-            'to': [1,1,1]
-            'remove': [
-                [1,1,1],
-                [1,1,2]
-            ]
-        }
-        
-        return it in JSON
-        '''
-
-        
         return json.dumps({
             'move': 'place',
             'to': random.choice(emptySpots)
