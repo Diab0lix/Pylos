@@ -233,13 +233,19 @@ class PylosClient(game.GameClient):
                     for i in ((1,1),(1,-1),(-1,1),(-1,-1)):
                         try:
                             if state.state()['board'][layer][row][column] == state.state()['board'][layer][row+i[0]][column] == state.state()['board'][layer][row][column+i[1]] != None and [layer,row+i[0],column+i[1]] in emptySpots:
-                                return json.dumps({
-                                            'move': 'place',
-                                            'to': [layer,row+i[0],column+i[1]],
-                                            'remove': [
-                                                [layer,row+i[0],column+i[1]],
-                                                random.choice(canMove)
-                                            ]})
+                                if state.state()['board'][layer][row][column] == state.state()['turn']:
+                                    return json.dumps({
+                                                'move': 'place',
+                                                'to': [layer,row+i[0],column+i[1]],
+                                                'remove': [
+                                                    [layer,row+i[0],column+i[1]],
+                                                    random.choice(canMove)
+                                                ]})
+                                else:
+                                    return json.dumps({
+                                                'move': 'place',
+                                                'to': [layer,row+i[0],column+i[1]]
+                                                })
                         except IndexError:
                             pass
 
