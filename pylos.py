@@ -202,94 +202,74 @@ class PylosClient(game.GameClient):
     def _handle(self, message):
         pass
     
-########################
-# Start of custom code #
-########################
-
-    #return move as string
+    # Return move as string
     def _nextmove(self, state):
         player = state.state()['turn']
-        bestState, bestScore, bestMove = minimax(state, player)
-        # !!! bestMove is returning an illegal move (place a ball to position [0, 0, 2] when it is already occupied)
-        # !!! bestMove is returned by minimax()
+        bestScore, bestMove = minimax(state, player)
+        if bestMove == None:
+            print(state.state())
+            sys.exit(1)
         return json.dumps(bestMove)
 
 # Recursive minimax function
 # Searches the tree depth-first and returns the best move for a given player to the parent
-def minimax(state, player, depth=2):
+def minimax(state, player, depth=3):
     bestScore = None
-    for move in options(state): # doesn't seem to return any illegal moves
+    bestMove = None
+    for move in options(state):
         newState = copy.deepcopy(state)
-        nextState = applyMove(newState, move) # also seems to work perfectly, but don't take my word for it
+        if move == None:
+            print(state)
+            print(options(state))
+            sys.exit(1)
+        nextState = applyMove(newState, move) 
         if depth > 0:
-            playedState, playedScore, playedMove = minimax(nextState, player, depth-1)
+            playedScore, playedMove = minimax(nextState, player, depth-1)
+            # Means we've reached the end of the game and we don't have any balls left
+            # We don't want do continue, so just try the next move in the list
+            if playedMove == None:
+                continue
         else:
-            playedState = nextState
             playedScore = evaluate(nextState)
             playedMove = move
         
         if bestScore == None:
             bestScore = playedScore
-            bestState = playedState
-            bestMove = playedMove
+            bestMove = move
 
         # Our turn -> maximize the score
-        if state.state()['turn'] == player:
+        if newState.state()['turn'] == player:
             if playedScore > bestScore:
                 bestScore = playedScore
-                bestState = playedState
-                bestMove = playedMove
+                bestMove = move
 
         # Opponent's turn -> minimise the score
         else:
             if playedScore < bestScore:
                 bestScore = playedScore
-                bestState = playedState
-                bestMove = playedMove
-
-    return (bestState, bestScore, bestMove)
+                bestMove = move
+    return (bestScore, bestMove)
     
 # Gives the score of the game
 # Player 0 tries to maximise the score
 # Player 1 tries to minimise it
+# Could be more optimized
 def evaluate(state):
     return state.state()['reserve'][0] - state.state()['reserve'][1]
-
 
 # Simulates a move applied to a state without changing the original state and making the game progress
 def applyMove(stateOrig, move):
     state = copy.deepcopy(stateOrig)
-    #state = PylosState(stateOrig.state())
     player = state.state()['turn']
-
-    layer, row, column = move['to']
-    state.state()['board'][layer][row][column] = player
-
-    # Set the spot to None when we move a ball from there
-    if 'from' in move:
-        layer, row, column = move['from']
-        state.state()['board'][layer][row][column] = None
-
-    # Set the spot to None for each ball we remove from the game
-    if 'remove' in move:
-        for place in move['remove']:
-            layer, row, column = place
-            state.state()['board'][layer][row][column] = None
-        state.state()['reserve'][player] += 1
-
-    # Udate the reserve (number of balls each player has left) when we take a ball from it
-    if move['move'] == 'place':
-        state.state()['reserve'][player] -= 1
-
-    # Next player's turn
-    state.state()['turn'] = (state.state()['turn'] + 1) % 2
-    
+    try:
+        state.update(move, player)
+    except:
+        print(state, move)
     return state
 
 # Returns all possible moves possible for one player depending on the state
 def options(state_):
     state = copy.deepcopy(state_)
-    #state = PylosState(state_.state())
     emptySpots = []
     canMove = []
     possibleMoves = []
@@ -316,7 +296,7 @@ def options(state_):
         for row in range(len(state.state()['board'][layer])):
             for column in range(len(state.state()['board'][layer][row])):                 
                 # Make a square of own color if 3 are already in a corner
-                for i in ((1,1),(1,-1),(-1,1),(-1,-1)): # Maybe there's a better way
+                for i in ((1,1),(1,-1),(-1,1),(-1,-1)): # Maybe there's a better way by using state.createSquare()
                     try:
                         if state.state()['board'][layer][row][column] == state.state()['board'][layer][row+i[0]][column] == state.state()['board'][layer][row][column+i[1]] != None and [layer,row+i[0],column+i[1]] in emptySpots and state.state()['reserve'][state.state()['turn']] > 0: # any ideas to make it even longer?
                             if state.state()['board'][layer][row][column] == state.state()['turn']:
@@ -336,7 +316,7 @@ def options(state_):
                     except IndexError:
                         pass
     
-    # If it's possible to move a ball up, do it
+    # Make a list of bells that can be moved up
     for move in canMove:
         for spot in emptySpots:
             if move[0] < spot[0]:
@@ -349,17 +329,13 @@ def options(state_):
    
     # Place a ball from the reseve in each possible spot
     if state.state()['reserve'][state.state()['turn']] > 0:
-        for i in emptySpots: 
+        for i in emptySpots:
             possibleMoves.append({
             'move': 'place',
             'to': i
         })
 
     return possibleMoves
-
-######################
-# End of custom code #
-######################
 
 if __name__ == '__main__':
     # Create the top-level parser
