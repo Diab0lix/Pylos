@@ -8,7 +8,7 @@ import argparse
 import socket
 import sys
 import json
-import random
+import copy
 
 from lib import game
 
@@ -120,7 +120,7 @@ class PylosState(game.GameState):
         state = self._state['visible']
         if move['move'] == 'place':
             if state['reserve'][player] < 1:
-                raise game.InvalidMoveException('no more sphere')
+                raise game.InvalidMoveException('no more spheres')
             self.set(move['to'], player)
             state['reserve'][player] -= 1
         elif move['move'] == 'move':
@@ -202,69 +202,164 @@ class PylosClient(game.GameClient):
     def _handle(self, message):
         pass
     
+########################
+# Start of custom code #
+########################
+
     #return move as string
     def _nextmove(self, state):
+        player = state.state()['turn']
+        bestState, bestScore, bestMove = minimax(state, player)
+        # !!! bestMove is returning an illegal move (place a ball to position [0, 0, 2] when it is already occupied)
+        # !!! bestMove is returned by minimax()
+        return json.dumps(bestMove)
 
-        emptySpots = []
-        canMove = []
-      
-        for layer in range(len(state.state()['board'])):
-            for row in range(len(state.state()['board'][layer])):
-                for column in range(len(state.state()['board'][layer][row])):
-                    if state.state()['board'][layer][row][column] == None:
-                        # Make a list of empty places where a ball can be placed on
-                        try:
-                            state.validPosition(layer, row, column)
-                            emptySpots.append([layer, row, column])
-                        except:
-                            pass
-                    if state.state()['board'][layer][row][column] == state.state()['turn']:
-                        # Make a list of the balls that don't support anything and can be (re)moved
-                        try:
-                            state.canMove(layer, row, column)
-                            canMove.append([layer, row, column])
-                        except:
-                            pass
+# Recursive minimax function
+# Searches the tree depth-first and returns the best move for a given player to the parent
+def minimax(state, player, depth=2):
+    bestScore = None
+    for move in options(state): # doesn't seem to return any illegal moves
+        newState = copy.deepcopy(state)
+        nextState = applyMove(newState, move) # also seems to work perfectly, but don't take my word for it
+        if depth > 0:
+            playedState, playedScore, playedMove = minimax(nextState, player, depth-1)
+        else:
+            playedState = nextState
+            playedScore = evaluate(nextState)
+            playedMove = move
+        
+        if bestScore == None:
+            bestScore = playedScore
+            bestState = playedState
+            bestMove = playedMove
 
-        for layer in range(len(state.state()['board'])):
-            for row in range(len(state.state()['board'][layer])):
-                for column in range(len(state.state()['board'][layer][row])):                 
-                    # Make a square of own color if 3 are already in a corner
-                    for i in ((1,1),(1,-1),(-1,1),(-1,-1)):
-                        try:
-                            if state.state()['board'][layer][row][column] == state.state()['board'][layer][row+i[0]][column] == state.state()['board'][layer][row][column+i[1]] != None and [layer,row+i[0],column+i[1]] in emptySpots:
-                                if state.state()['board'][layer][row][column] == state.state()['turn']:
-                                    return json.dumps({
+        # Our turn -> maximize the score
+        if state.state()['turn'] == player:
+            if playedScore > bestScore:
+                bestScore = playedScore
+                bestState = playedState
+                bestMove = playedMove
+
+        # Opponent's turn -> minimise the score
+        else:
+            if playedScore < bestScore:
+                bestScore = playedScore
+                bestState = playedState
+                bestMove = playedMove
+
+    return (bestState, bestScore, bestMove)
+    
+# Gives the score of the game
+# Player 0 tries to maximise the score
+# Player 1 tries to minimise it
+def evaluate(state):
+    return state.state()['reserve'][0] - state.state()['reserve'][1]
+
+
+# Simulates a move applied to a state without changing the original state and making the game progress
+def applyMove(stateOrig, move):
+    state = copy.deepcopy(stateOrig)
+    #state = PylosState(stateOrig.state())
+    player = state.state()['turn']
+
+    layer, row, column = move['to']
+    state.state()['board'][layer][row][column] = player
+
+    # Set the spot to None when we move a ball from there
+    if 'from' in move:
+        layer, row, column = move['from']
+        state.state()['board'][layer][row][column] = None
+
+    # Set the spot to None for each ball we remove from the game
+    if 'remove' in move:
+        for place in move['remove']:
+            layer, row, column = place
+            state.state()['board'][layer][row][column] = None
+        state.state()['reserve'][player] += 1
+
+    # Udate the reserve (number of balls each player has left) when we take a ball from it
+    if move['move'] == 'place':
+        state.state()['reserve'][player] -= 1
+
+    # Next player's turn
+    state.state()['turn'] = (state.state()['turn'] + 1) % 2
+    
+    return state
+
+# Returns all possible moves possible for one player depending on the state
+def options(state_):
+    state = copy.deepcopy(state_)
+    #state = PylosState(state_.state())
+    emptySpots = []
+    canMove = []
+    possibleMoves = []
+
+    for layer in range(len(state.state()['board'])):
+        for row in range(len(state.state()['board'][layer])):
+            for column in range(len(state.state()['board'][layer][row])):
+                if state.state()['board'][layer][row][column] == None:
+                    # Make a list of empty places where a ball can be placed on
+                    try:
+                        state.validPosition(layer, row, column)
+                        emptySpots.append([layer, row, column])
+                    except:
+                        pass
+                if state.state()['board'][layer][row][column] == state.state()['turn']:
+                    # Make a list of the balls that don't support anything and can be (re)moved
+                    try:
+                        state.canMove(layer, row, column)
+                        canMove.append([layer, row, column])
+                    except:
+                        pass
+
+    for layer in range(len(state.state()['board'])):
+        for row in range(len(state.state()['board'][layer])):
+            for column in range(len(state.state()['board'][layer][row])):                 
+                # Make a square of own color if 3 are already in a corner
+                for i in ((1,1),(1,-1),(-1,1),(-1,-1)): # Maybe there's a better way
+                    try:
+                        if state.state()['board'][layer][row][column] == state.state()['board'][layer][row+i[0]][column] == state.state()['board'][layer][row][column+i[1]] != None and [layer,row+i[0],column+i[1]] in emptySpots and state.state()['reserve'][state.state()['turn']] > 0: # any ideas to make it even longer?
+                            if state.state()['board'][layer][row][column] == state.state()['turn']:
+                                for j in canMove:
+                                    possibleMoves.append({
                                                 'move': 'place',
                                                 'to': [layer,row+i[0],column+i[1]],
                                                 'remove': [
                                                     [layer,row+i[0],column+i[1]],
-                                                    random.choice(canMove)
+                                                    j
                                                 ]})
-                                else:
-                                    return json.dumps({
-                                                'move': 'place',
-                                                'to': [layer,row+i[0],column+i[1]]
-                                                })
-                        except IndexError:
-                            pass
-
-        # If it's possible to move a ball up, do it
-        for move in canMove:
-            for spot in emptySpots:
-                if move[0] < spot[0]:
-                    if move[1] != spot[1] and move[1] != spot[2] and move[1]-spot[1] > 1 or move[2]-spot[2] > 1:
-                        return json.dumps({
-                                   'move': 'move',
-                                   'from': move,
-                                   'to': spot
-                               })
-
-        return json.dumps({
+                            else:
+                                possibleMoves.append({
+                                            'move': 'place',
+                                            'to': [layer,row+i[0],column+i[1]]
+                                            })
+                    except IndexError:
+                        pass
+    
+    # If it's possible to move a ball up, do it
+    for move in canMove:
+        for spot in emptySpots:
+            if move[0] < spot[0]:
+                if move[1] != spot[1] and move[1] != spot[2] and move[1]-spot[1] > 1 or move[2]-spot[2] > 1:
+                    possibleMoves.append({
+                               'move': 'move',
+                               'from': move,
+                               'to': spot
+                           })
+   
+    # Place a ball from the reseve in each possible spot
+    if state.state()['reserve'][state.state()['turn']] > 0:
+        for i in emptySpots: 
+            possibleMoves.append({
             'move': 'place',
-            'to': random.choice(emptySpots)
+            'to': i
         })
 
+    return possibleMoves
+
+######################
+# End of custom code #
+######################
 
 if __name__ == '__main__':
     # Create the top-level parser
