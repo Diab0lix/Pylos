@@ -206,56 +206,51 @@ class PylosClient(game.GameClient):
     def _nextmove(self, state):
         player = state.state()['turn']
         bestScore, bestMove = minimax(state, player)
-        if bestMove == None:
-            print(state.state())
-            sys.exit(1)
         return json.dumps(bestMove)
 
 # Recursive minimax function
 # Searches the tree depth-first and returns the best move for a given player to the parent
-def minimax(state, player, depth=3):
+def minimax(state, player, depth=1):
     bestScore = None
     bestMove = None
     for move in options(state):
         newState = copy.deepcopy(state)
-        if move == None:
-            print(state)
-            print(options(state))
-            sys.exit(1)
         nextState = applyMove(newState, move) 
         if depth > 0:
-            playedScore, playedMove = minimax(nextState, player, depth-1)
+            # Call itself again, but one level deeper and play as opponent
+            playedScore, playedMove = minimax(nextState, 1-player, depth-1)
+
             # Means we've reached the end of the game and we don't have any balls left
-            # We don't want do continue, so just try the next move in the list
+            # We don't want to continue, so just try the next move in the list
             if playedMove == None:
+                bestMove = move
+                bestScore = evaluate(bestMove, player)
                 continue
         else:
-            playedScore = evaluate(nextState)
+            # Reached the last level -> evaluate the score and pass it to parent
+            playedScore = evaluate(nextState, player)
             playedMove = move
         
+        # First time in the for loop
         if bestScore == None:
             bestScore = playedScore
             bestMove = move
 
-        # Our turn -> maximize the score
-        if newState.state()['turn'] == player:
-            if playedScore > bestScore:
-                bestScore = playedScore
-                bestMove = move
+        # Maximize the score
+        if playedScore > bestScore:
+            bestScore = playedScore
+            bestMove = move
 
-        # Opponent's turn -> minimise the score
-        else:
-            if playedScore < bestScore:
-                bestScore = playedScore
-                bestMove = move
-    return (bestScore, bestMove)
+    # Each player tries to maximize the score
+    # A good score for my opponent means a bad score for me
+    # That's why we return -bestScore
+    return (-bestScore, bestMove) 
     
-# Gives the score of the game
-# Player 0 tries to maximise the score
-# Player 1 tries to minimise it
-# Could be more optimized
-def evaluate(state):
-    return state.state()['reserve'][0] - state.state()['reserve'][1]
+# Give the score of the game
+# Just look at the difference between the number of balls in each player's reserve
+# If my opponent has more balls than me, that's bad and score will be negative
+def evaluate(state, player):
+    return state.state()['reserve'][player] - state.state()['reserve'][1-player]
 
 # Simulates a move applied to a state without changing the original state and making the game progress
 def applyMove(stateOrig, move):
@@ -320,7 +315,7 @@ def options(state_):
     for move in canMove:
         for spot in emptySpots:
             if move[0] < spot[0]:
-                if move[1] != spot[1] and move[1] != spot[2] and move[1]-spot[1] > 1 or move[2]-spot[2] > 1:
+                if move[1]-spot[1] > 0 or move[2]-spot[2] > 0:
                     possibleMoves.append({
                                'move': 'move',
                                'from': move,
