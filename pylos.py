@@ -210,12 +210,15 @@ class PylosClient(game.GameClient):
 
 # Recursive minimax function
 # Searches the tree depth-first and returns the best move for a given player to the parent
-def minimax(state, player, depth=3):
-    bestScore = 0
+def minimax(state, player, depth=2):
+    bestScore = -100
     bestMove = None
+    print('State: {}'.format(state.state()))
     for move in options(state):
         newState = copy.deepcopy(state)
         nextState = applyMove(newState, move) 
+        if nextState == None:
+            continue
         if depth > 0:
             # Call itself again, but one level deeper and play as opponent
             playedScore, playedMove = minimax(nextState, 1-player, depth-1)
@@ -224,7 +227,7 @@ def minimax(state, player, depth=3):
             # We don't want to continue, so just try the next move in the list
             if playedMove == None:
                 bestMove = move
-                bestScore = evaluate(newState, player)
+                bestScore = evaluate(nextState, player)
                 continue
         else:
             # Reached the last level -> evaluate the score and pass it to parent
@@ -232,19 +235,28 @@ def minimax(state, player, depth=3):
             playedMove = move
         
         # First time in the for loop
-        if bestScore == 0:
+        if bestMove == None:
             bestScore = playedScore
             bestMove = move
+            print('Best Move for best score == None: {}'.format(bestMove))
 
+        print((2-depth)*'    '+str(move)+'('+str(playedScore)+')\n')
         # Maximize the score
         if playedScore > bestScore:
+            print('SCORE UPDATE')
+            print('Played Score: {}'.format(playedScore))
+            print('Best Score: {}'.format(bestScore))
+            print('Best move for score update: {}'.format(move))
             bestScore = playedScore
             bestMove = move
-
+    
+    print('Depth: {}'.format(depth))
+    print('Best Move: {}'.format(bestMove))
+    print('Best Score: {}'.format(bestScore))
+    print("----\n")
     # Each player tries to maximize the score
     # A good score for my opponent means a bad score for me
     # That's why we return -bestScore
-
     return (-bestScore, bestMove) 
     
 # Give the score of the game
@@ -260,6 +272,7 @@ def applyMove(stateOrig, move):
     try:
         state.update(move, player)
     except:
+        return None
         print(state.state())
         print(move)
     return state
@@ -316,13 +329,11 @@ def options(state_):
     # Make a list of bells that can be moved up
     for move in canMove:
         for spot in emptySpots:
-            if move[0] < spot[0]:
-                if spot[1]-move[1] > 0 or spot[2]-move[2] > 0:
-                    possibleMoves.append({
-                               'move': 'move',
-                               'from': move,
-                               'to': spot
-                           })
+            possibleMoves.append({
+                       'move': 'move',
+                       'from': move,
+                       'to': spot
+                   })
    
     # Place a ball from the reseve in each possible spot
     if state.state()['reserve'][state.state()['turn']] > 0:
