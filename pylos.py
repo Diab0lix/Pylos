@@ -211,7 +211,7 @@ class PylosClient(game.GameClient):
 # Recursive minimax function
 # Searches the tree depth-first and returns the best move for a given player to the parent
 def minimax(state, player, depth=3):
-    bestScore = None
+    bestScore = 0
     bestMove = None
     for move in options(state):
         newState = copy.deepcopy(state)
@@ -224,7 +224,7 @@ def minimax(state, player, depth=3):
             # We don't want to continue, so just try the next move in the list
             if playedMove == None:
                 bestMove = move
-                bestScore = evaluate(bestMove, player)
+                bestScore = evaluate(newState, player)
                 continue
         else:
             # Reached the last level -> evaluate the score and pass it to parent
@@ -232,7 +232,7 @@ def minimax(state, player, depth=3):
             playedMove = move
         
         # First time in the for loop
-        if bestScore == None:
+        if bestScore == 0:
             bestScore = playedScore
             bestMove = move
 
@@ -244,6 +244,7 @@ def minimax(state, player, depth=3):
     # Each player tries to maximize the score
     # A good score for my opponent means a bad score for me
     # That's why we return -bestScore
+
     return (-bestScore, bestMove) 
     
 # Give the score of the game
