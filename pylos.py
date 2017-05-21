@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # pylos.py
-# Author: Quentin Lurkin
-# Version: April 28, 2017
+# Author: Quentin Lurkin, Thierry Frycia
+# Version: May 21, 2017
 # -*- coding: utf-8 -*-
 
 import argparse
@@ -210,7 +210,7 @@ class PylosClient(game.GameClient):
 
 # Recursive minimax function
 # Searches the tree depth-first and returns the best move for a given player to the parent
-def minimax(state, player, depth=1):
+def minimax(state, player, depth=3):
     bestScore = None
     bestMove = None
     for move in options(state):
@@ -259,7 +259,7 @@ def applyMove(stateOrig, move):
     try:
         state.update(move, player)
     except:
-        print(state, move)
+        pass
     return state
 
 # Returns all possible moves possible for one player depending on the state
