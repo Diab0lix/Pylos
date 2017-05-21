@@ -259,7 +259,8 @@ def applyMove(stateOrig, move):
     try:
         state.update(move, player)
     except:
-        pass
+        print(state.state())
+        print(move)
     return state
 
 # Returns all possible moves possible for one player depending on the state
@@ -315,7 +316,7 @@ def options(state_):
     for move in canMove:
         for spot in emptySpots:
             if move[0] < spot[0]:
-                if move[1]-spot[1] > 0 or move[2]-spot[2] > 0:
+                if spot[1]-move[1] > 0 or spot[2]-move[2] > 0:
                     possibleMoves.append({
                                'move': 'move',
                                'from': move,
