@@ -210,10 +210,9 @@ class PylosClient(game.GameClient):
 
 # Recursive minimax function
 # Searches the tree depth-first and returns the best move for a given player to the parent
-def minimax(state, player, depth=2):
+def minimax(state, player, depth=3):
     bestScore = -100
     bestMove = None
-    print('State: {}'.format(state.state()))
     for move in options(state):
         newState = copy.deepcopy(state)
         nextState = applyMove(newState, move) 
@@ -238,22 +237,12 @@ def minimax(state, player, depth=2):
         if bestMove == None:
             bestScore = playedScore
             bestMove = move
-            print('Best Move for best score == None: {}'.format(bestMove))
 
-        print((2-depth)*'    '+str(move)+'('+str(playedScore)+')\n')
         # Maximize the score
         if playedScore > bestScore:
-            print('SCORE UPDATE')
-            print('Played Score: {}'.format(playedScore))
-            print('Best Score: {}'.format(bestScore))
-            print('Best move for score update: {}'.format(move))
             bestScore = playedScore
             bestMove = move
     
-    print('Depth: {}'.format(depth))
-    print('Best Move: {}'.format(bestMove))
-    print('Best Score: {}'.format(bestScore))
-    print("----\n")
     # Each player tries to maximize the score
     # A good score for my opponent means a bad score for me
     # That's why we return -bestScore
@@ -273,8 +262,6 @@ def applyMove(stateOrig, move):
         state.update(move, player)
     except:
         return None
-        print(state.state())
-        print(move)
     return state
 
 # Returns all possible moves possible for one player depending on the state
@@ -326,14 +313,17 @@ def options(state_):
                     except IndexError:
                         pass
     
-    # Make a list of bells that can be moved up
+    # Make a list of balls that can be moved up
     for move in canMove:
         for spot in emptySpots:
-            possibleMoves.append({
-                       'move': 'move',
-                       'from': move,
-                       'to': spot
-                   })
+            if move[0] < spot[0]:
+                if (move[1]-spot[1], move[2]-spot[2]) not in ((0, 0), (0, 1), (1, 0), (1, 1)):
+                    possibleMoves.append({
+                        'move': 'move',
+                        'from': move,
+                        'to': spot
+                    })
+
    
     # Place a ball from the reseve in each possible spot
     if state.state()['reserve'][state.state()['turn']] > 0:
