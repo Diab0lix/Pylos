@@ -157,10 +157,10 @@ class PylosState(game.GameState):
         return -1
 
     def val2str(self, val):
-        return '_' if val == None else '@' if val == 0 else 'O'
+        return '_' if val == None else 'X' if val == 0 else 'O'
 
     def player2str(self, val):
-        return 'Light' if val == 0 else 'Dark'
+        return 'Crosses' if val == 0 else 'Noughts'
 
     def printSquare(self, matrix):
         print(' ' + '_'*(len(matrix)*2-1))
@@ -288,10 +288,6 @@ def options(state_):
                         canMove.append([layer, row, column])
                     except:
                         pass
-
-    for layer in range(len(state.state()['board'])):
-        for row in range(len(state.state()['board'][layer])):
-            for column in range(len(state.state()['board'][layer][row])):                 
                 # Make a square of own color if 3 are already in a corner
                 for i in ((1,1),(1,-1),(-1,1),(-1,-1)): # Maybe there's a better way by using state.createSquare()
                     try:
@@ -312,7 +308,7 @@ def options(state_):
                                             })
                     except IndexError:
                         pass
-    
+
     # Make a list of balls that can be moved up
     for move in canMove:
         for spot in emptySpots:
